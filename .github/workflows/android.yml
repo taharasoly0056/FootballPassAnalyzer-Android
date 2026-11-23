@@ -20,12 +20,30 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      
       - name: Check Environment
         run: |
+          echo "===== PYTHON ====="
           python3 --version
-          clang --version
-          echo "NDK: $ANDROIDNDK"
-          ls "$ANDROIDNDK/toolchains/llvm/prebuilt/linux-x86_64/lib" || true
+
+          echo "===== ANDROID NDK ====="
+          echo "$ANDROIDNDK"
+
+          echo "===== SYSTEM CLANG ====="
+          if command -v clang >/dev/null 2>&1; then
+            clang --version
+          else
+            echo "System clang not found; checking Android NDK"
+          fi
+
+          echo "===== NDK CLANG ====="
+          if [ -n "$ANDROIDNDK" ]; then
+            find "$ANDROIDNDK/toolchains/llvm/prebuilt" \
+              -type f -name clang | head -n 10
+          fi
+
+          echo "===== ENVIRONMENT CHECK COMPLETE ====="
+
 
       - name: Build APK
         run: |
