@@ -49,7 +49,20 @@ jobs:
         run: |
           set -o pipefail
           buildozer -v android debug 2>&1 | tee build.log
+     
+      - name: Inspect Clang Libraries
+        if: always()
+        run: |
+          echo "===== ANDROID NDK ====="
+          echo "$ANDROIDNDK"
 
+          echo "===== CLANG LIBRARY DIRECTORIES ====="
+          find "$ANDROIDNDK/toolchains/llvm/prebuilt/linux-x86_64/lib/clang" \
+            -maxdepth 6 -type d 2>/dev/null || true
+
+          echo "===== LIBOMP FILES ====="
+          find "$ANDROIDNDK/toolchains/llvm/prebuilt" \
+            -name "libomp.so" 2>/dev/null || true
       - name: Show Error Summary
         if: always()
         run: |
