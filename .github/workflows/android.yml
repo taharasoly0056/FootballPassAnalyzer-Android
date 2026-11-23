@@ -1,3 +1,48 @@
+
+name: Android APK Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  build:
+    name: Build APK
+    runs-on: ubuntu-latest
+
+    container:
+      image: ghcr.io/kivy/buildozer:latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check Environment
+        run: |
+          echo "===== PYTHON ====="
+          python3 --version
+
+          echo "===== ANDROID NDK ====="
+          echo "$ANDROIDNDK"
+
+          echo "===== SYSTEM CLANG ====="
+          if command -v clang >/dev/null 2>&1; then
+            clang --version
+          else
+            echo "System clang not found; checking Android NDK"
+          fi
+
+          echo "===== NDK CLANG ====="
+          if [ -n "$ANDROIDNDK" ]; then
+            find "$ANDROIDNDK/toolchains/llvm/prebuilt" \
+              -type f -name clang | head -n 10
+          fi
+
+          echo "===== ENVIRONMENT CHECK COMPLETE ====="
+
       - name: Build APK
         run: |
           set -o pipefail
@@ -15,7 +60,44 @@
           ls -la "$NDK_DIR" || true
 
           echo "===== CLANG LIBRARY DIRECTORIES ====="
-          find "$NDK_DIR/toolchains/llvm/prebuilt" -maxdepth 7 -type d -path "*/lib/clang/*" 2>/dev/null || true
+          find "$NDK_DIR/toolchains/llvm/prebuilt" \
+            -maxdepth 7 -type d -path "*/lib/clang/*" 2>/dev/null || true
 
           echo "===== LIBOMP FILES ====="
-          find "$NDK_DIR/toolchains/llvm/prebuilt" -name "libomp.so" 2>/dev/null || true
+          find "$NDK_DIR/toolchains/llvm/prebuilt" \
+            -name "libomp.so" 2>/dev/null || true
+
+      - name: Show Error Summary
+        if: always()
+        run: |
+          echo "================================"
+          echo "       BUILD ERROR SUMMARY"
+          echo "================================"
+
+          if [ -f build.log ]; then
+            echo "---- Important errors ----"
+            grep -niE \
+              'error:|exception:|traceback|failed|fatal|indexerror' \
+              build.log | tail -n 80 || true
+
+            echo "---- Last 120 lines ----"
+            tail -n 120 build.log
+          else
+            echo "build.log was not created"
+          fi
+
+      - name: Upload Build Log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FootballPassAnalyzer-Build-Log
+          path: build.log
+          if-no-files-found: warn
+
+      - name: Upload APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FootballPassAnalyzer-Android-APK
+          path: bin/*.apk
+          if-no-files-found: error
