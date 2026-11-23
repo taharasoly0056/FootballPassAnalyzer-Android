@@ -1,0 +1,3 @@
+Base source: Football Pass Analyzer Pro v26 PySide6 uploaded by user.
+Database schema names and additive migration fields were preserved from source.
+This package does not include the user's existing SQLite database.
