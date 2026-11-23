@@ -1,3 +1,4 @@
+
 name: Android APK Build
 
 on:
@@ -12,22 +13,19 @@ jobs:
     name: Build APK
     runs-on: ubuntu-latest
 
+    container:
+      image: ghcr.io/kivy/buildozer:latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build APK with Buildozer
-        id: buildozer
-        uses: ArtemSBulgakov/buildozer-action@v1
-        with:
-          repository_root: .
-          workdir: .
-          buildozer_version: stable
+      - name: Build APK
+        run: buildozer android debug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: FootballPassAnalyzer-Android-APK
-          path: ${{ steps.buildozer.outputs.filename }}
+          path: bin/*.apk
           if-no-files-found: error
-          
