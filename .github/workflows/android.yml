@@ -1,0 +1,27 @@
+
+name: Android APK Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build APK
+        uses: digreatbuddha/buildozer-action@v1
+        with:
+          repository_root: .
+          buildozer_version: stable
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FootballPassAnalyzer-Android-APK
+          path: bin/*.apk
+          
