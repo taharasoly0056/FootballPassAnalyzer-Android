@@ -1,4 +1,3 @@
-
 name: Android APK Build
 
 on:
@@ -19,6 +18,22 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Clean old Buildozer cache
+        shell: bash
+        run: |
+          rm -rf .buildozer/android/platform/python-for-android
+          rm -rf .buildozer/android/platform/build-arm64-v8a
+
+      - name: Check NDK and Clang paths
+        shell: bash
+        run: |
+          echo "ANDROIDNDK=$ANDROIDNDK"
+          echo "===== Clang directories in NDK ====="
+          find "$ANDROIDNDK" -type d -path "*/lib/clang*" 2>/dev/null | head -100 || true
+
+          echo "===== Clang runtime libraries ====="
+          find "$ANDROIDNDK" -type f -name "libclang_rt.builtins*" 2>/dev/null | head -100 || true
 
       - name: Build Android APK
         shell: bash
