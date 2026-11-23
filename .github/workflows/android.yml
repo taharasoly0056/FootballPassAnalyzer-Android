@@ -25,23 +25,28 @@ jobs:
           echo "===== PYTHON ====="
           python3 --version
 
+          echo "===== ANDROID SDK ====="
+          echo "$ANDROIDSDK"
+
           echo "===== ANDROID NDK ====="
           echo "$ANDROIDNDK"
+
+          echo "===== ANDROID API ====="
+          echo "$ANDROIDAPI"
+          echo "$ANDROIDMINAPI"
 
           echo "===== SYSTEM CLANG ====="
           if command -v clang >/dev/null 2>&1; then
             clang --version
           else
-            echo "System clang not found; checking Android NDK"
+            echo "System clang not found"
           fi
 
           echo "===== NDK CLANG ====="
           if [ -n "$ANDROIDNDK" ]; then
             find "$ANDROIDNDK/toolchains/llvm/prebuilt" \
-              -type f -name clang | head -n 10
+              -type f -name clang 2>/dev/null | head -n 10
           fi
-
-          echo "===== ENVIRONMENT CHECK COMPLETE ====="
 
       - name: Build APK
         run: |
@@ -54,18 +59,26 @@ jobs:
           NDK_DIR="/github/home/.buildozer/android/platform/android-ndk-r25b"
 
           echo "===== NDK DIRECTORY ====="
-          echo "$NDK_DIR"
-
-          echo "===== NDK CHECK ====="
           ls -la "$NDK_DIR" || true
 
-          echo "===== CLANG LIBRARY DIRECTORIES ====="
+          echo "===== LLVM PREBUILT DIRECTORIES ====="
           find "$NDK_DIR/toolchains/llvm/prebuilt" \
-            -maxdepth 7 -type d -path "*/lib/clang/*" 2>/dev/null || true
+            -maxdepth 3 -type d 2>/dev/null || true
 
-          echo "===== LIBOMP FILES ====="
+          echo "===== ALL CLANG DIRECTORIES ====="
           find "$NDK_DIR/toolchains/llvm/prebuilt" \
-            -name "libomp.so" 2>/dev/null || true
+            -type d -path "*/lib/clang/*" 2>/dev/null || true
+
+          echo "===== LINUX CLANG LIBRARY DIRECTORIES ====="
+          find "$NDK_DIR/toolchains/llvm/prebuilt" \
+            -type d -path "*/lib/clang/*/lib/linux/*" 2>/dev/null || true
+
+          echo "===== ALL LIBOMP FILES ====="
+          find "$NDK_DIR" -name "libomp.so" 2>/dev/null || true
+
+          echo "===== EXPECTED ARM64 DIRECTORY ====="
+          find "$NDK_DIR" -type d \
+            -path "*/lib/clang/*/lib/linux/aarch64" 2>/dev/null || true
 
       - name: Show Error Summary
         if: always()
@@ -76,6 +89,7 @@ jobs:
 
           if [ -f build.log ]; then
             echo "---- Important errors ----"
+
             grep -niE \
               'error:|exception:|traceback|failed|fatal|indexerror' \
               build.log | tail -n 80 || true
