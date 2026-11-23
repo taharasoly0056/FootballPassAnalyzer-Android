@@ -35,50 +35,67 @@ jobs:
           echo "$ANDROIDAPI"
           echo "$ANDROIDMINAPI"
 
-          echo "===== SYSTEM CLANG ====="
-          if command -v clang >/dev/null 2>&1; then
-            clang --version
-          else
-            echo "System clang not found"
-          fi
-
-          echo "===== NDK CLANG ====="
-          if [ -n "$ANDROIDNDK" ]; then
-            find "$ANDROIDNDK/toolchains/llvm/prebuilt" \
-              -type f -name clang 2>/dev/null | head -n 10
-          fi
-
       - name: Build APK
         run: |
-          set -o pipefail
+          set +e
+
+          echo "===== FIRST BUILD ATTEMPT ====="
           buildozer -v android debug 2>&1 | tee build.log
+          BUILD_STATUS=${PIPESTATUS[0]}
+
+          set -e
+
+          if [ "$BUILD_STATUS" -eq 0 ]; then
+            echo "First build completed successfully."
+            exit 0
+          fi
+
+          echo "===== CHECKING NDK CLANG PATH ====="
+
+          NDK_DIR="${ANDROIDNDK:-/github/home/.buildozer/android/platform/android-ndk-r25b}"
+          PREBUILT="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64"
+
+          if [ -d "$PREBUILT/lib64/clang" ]; then
+            echo "Found Clang libraries in lib64."
+
+            mkdir -p "$PREBUILT/lib"
+
+            if [ ! -e "$PREBUILT/lib/clang" ]; then
+              ln -s "$PREBUILT/lib64/clang" "$PREBUILT/lib/clang"
+              echo "Created compatibility symlink."
+            else
+              echo "Compatibility path already exists."
+            fi
+          else
+            echo "Clang lib64 directory was not found."
+            exit "$BUILD_STATUS"
+          fi
+
+          echo "===== CHECKING COMPATIBILITY PATH ====="
+          ls -la "$PREBUILT/lib/clang"
+
+          echo "===== SECOND BUILD ATTEMPT ====="
+          buildozer -v android debug 2>&1 | tee -a build.log
 
       - name: Inspect Clang Libraries
         if: always()
         run: |
-          NDK_DIR="/github/home/.buildozer/android/platform/android-ndk-r25b"
+          NDK_DIR="${ANDROIDNDK:-/github/home/.buildozer/android/platform/android-ndk-r25b}"
+          PREBUILT="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64"
 
           echo "===== NDK DIRECTORY ====="
           ls -la "$NDK_DIR" || true
 
-          echo "===== LLVM PREBUILT DIRECTORIES ====="
-          find "$NDK_DIR/toolchains/llvm/prebuilt" \
-            -maxdepth 3 -type d 2>/dev/null || true
+          echo "===== ORIGINAL CLANG LIBRARIES ====="
+          find "$PREBUILT/lib64/clang" \
+            -name "libomp.so" 2>/dev/null || true
 
-          echo "===== ALL CLANG DIRECTORIES ====="
-          find "$NDK_DIR/toolchains/llvm/prebuilt" \
-            -type d -path "*/lib/clang/*" 2>/dev/null || true
+          echo "===== COMPATIBILITY CLANG PATH ====="
+          ls -la "$PREBUILT/lib/clang" || true
 
-          echo "===== LINUX CLANG LIBRARY DIRECTORIES ====="
-          find "$NDK_DIR/toolchains/llvm/prebuilt" \
-            -type d -path "*/lib/clang/*/lib/linux/*" 2>/dev/null || true
-
-          echo "===== ALL LIBOMP FILES ====="
-          find "$NDK_DIR" -name "libomp.so" 2>/dev/null || true
-
-          echo "===== EXPECTED ARM64 DIRECTORY ====="
-          find "$NDK_DIR" -type d \
-            -path "*/lib/clang/*/lib/linux/aarch64" 2>/dev/null || true
+          echo "===== ARM64 LIBOMP ====="
+          find "$PREBUILT" \
+            -path "*/lib/linux/aarch64/libomp.so" 2>/dev/null || true
 
       - name: Show Error Summary
         if: always()
