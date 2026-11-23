@@ -17,107 +17,16 @@ jobs:
       image: ghcr.io/kivy/buildozer:latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Check Environment
+      - name: Build Android APK
+        shell: bash
         run: |
-          echo "===== PYTHON ====="
-          python3 --version
-
-          echo "===== ANDROID SDK ====="
-          echo "$ANDROIDSDK"
-
-          echo "===== ANDROID NDK ====="
-          echo "$ANDROIDNDK"
-
-          echo "===== ANDROID API ====="
-          echo "$ANDROIDAPI"
-          echo "$ANDROIDMINAPI"
-
-      - name: Build APK
-        run: |
-          set +e
-
-          echo "===== FIRST BUILD ATTEMPT ====="
+          set -o pipefail
           buildozer -v android debug 2>&1 | tee build.log
-          BUILD_STATUS=${PIPESTATUS[0]}
 
-          set -e
-
-          if [ "$BUILD_STATUS" -eq 0 ]; then
-            echo "First build completed successfully."
-            exit 0
-          fi
-
-          echo "===== CHECKING NDK CLANG PATH ====="
-
-          NDK_DIR="${ANDROIDNDK:-/github/home/.buildozer/android/platform/android-ndk-r25b}"
-          PREBUILT="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64"
-
-          if [ -d "$PREBUILT/lib64/clang" ]; then
-            echo "Found Clang libraries in lib64."
-
-            mkdir -p "$PREBUILT/lib"
-
-            if [ ! -e "$PREBUILT/lib/clang" ]; then
-              ln -s "$PREBUILT/lib64/clang" "$PREBUILT/lib/clang"
-              echo "Created compatibility symlink."
-            else
-              echo "Compatibility path already exists."
-            fi
-          else
-            echo "Clang lib64 directory was not found."
-            exit "$BUILD_STATUS"
-          fi
-
-          echo "===== CHECKING COMPATIBILITY PATH ====="
-          ls -la "$PREBUILT/lib/clang"
-
-          echo "===== SECOND BUILD ATTEMPT ====="
-          buildozer -v android debug 2>&1 | tee -a build.log
-
-      - name: Inspect Clang Libraries
-        if: always()
-        run: |
-          NDK_DIR="${ANDROIDNDK:-/github/home/.buildozer/android/platform/android-ndk-r25b}"
-          PREBUILT="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64"
-
-          echo "===== NDK DIRECTORY ====="
-          ls -la "$NDK_DIR" || true
-
-          echo "===== ORIGINAL CLANG LIBRARIES ====="
-          find "$PREBUILT/lib64/clang" \
-            -name "libomp.so" 2>/dev/null || true
-
-          echo "===== COMPATIBILITY CLANG PATH ====="
-          ls -la "$PREBUILT/lib/clang" || true
-
-          echo "===== ARM64 LIBOMP ====="
-          find "$PREBUILT" \
-            -path "*/lib/linux/aarch64/libomp.so" 2>/dev/null || true
-
-      - name: Show Error Summary
-        if: always()
-        run: |
-          echo "================================"
-          echo "       BUILD ERROR SUMMARY"
-          echo "================================"
-
-          if [ -f build.log ]; then
-            echo "---- Important errors ----"
-
-            grep -niE \
-              'error:|exception:|traceback|failed|fatal|indexerror' \
-              build.log | tail -n 80 || true
-
-            echo "---- Last 120 lines ----"
-            tail -n 120 build.log
-          else
-            echo "build.log was not created"
-          fi
-
-      - name: Upload Build Log
+      - name: Upload build log
         if: always()
         uses: actions/upload-artifact@v4
         with:
