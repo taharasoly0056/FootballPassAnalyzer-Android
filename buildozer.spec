@@ -18,3 +18,4 @@ android.allow_backup = True
 p4a.bootstrap = sdl2
 [buildozer]
 warn_on_root = 0
+log_level = 2
