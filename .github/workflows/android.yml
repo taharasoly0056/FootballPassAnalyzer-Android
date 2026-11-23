@@ -20,13 +20,47 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Show Python Version
-        run: python3 --version
+      - name: Check Environment
+        run: |
+          python3 --version
+          clang --version
+          echo "NDK: $ANDROIDNDK"
+          ls "$ANDROIDNDK/toolchains/llvm/prebuilt/linux-x86_64/lib" || true
 
       - name: Build APK
-        run: buildozer -v android debug
+        run: |
+          set -o pipefail
+          buildozer -v android debug 2>&1 | tee build.log
+
+      - name: Show Error Summary
+        if: always()
+        run: |
+          echo "================================"
+          echo "       BUILD ERROR SUMMARY"
+          echo "================================"
+
+          if [ -f build.log ]; then
+            echo "---- Important errors ----"
+            grep -niE \
+              'error:|exception:|traceback|failed|fatal|indexerror' \
+              build.log | tail -n 80 || true
+
+            echo "---- Last 120 lines ----"
+            tail -n 120 build.log
+          else
+            echo "build.log was not created"
+          fi
+
+      - name: Upload Build Log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FootballPassAnalyzer-Build-Log
+          path: build.log
+          if-no-files-found: warn
 
       - name: Upload APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: FootballPassAnalyzer-Android-APK
